@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 import * as express from 'express';
 
 import { app as authController } from './controllers/AuthController';
+import { app as authJwtController } from './controllers/AuthJWTController';
 import { app as callController } from './controllers/CallController';
 import { app as recordingController, proxyGETRecording } from './controllers/RecordingController';
 import { app as sessionController } from './controllers/SessionController';
@@ -20,6 +21,8 @@ import {
 	MEETING_HOME,
 	OPENVIDU_SECRET,
 	OPENVIDU_URL,
+	JWT_SECRET,
+	JWT_LIFETIME,
 	SERVER_PORT
 } from './config';
 
@@ -45,6 +48,7 @@ app.use('/sessions/', authorizer, connectionController);
 app.use('/sessions', authorizer, sessionController);
 app.use('/recordings', authorizer, recordingController);
 app.use('/recordings/:recordingId', authorizer, proxyGETRecording);
+app.use('/auth/verify', authJwtController);
 app.use('/auth', authController);
 
 // Accept selfsigned certificates if CALL_OPENVIDU_CERTTYPE=selfsigned
@@ -65,6 +69,8 @@ app.listen(SERVER_PORT, () => {
 	}
 	console.log(`CALL RECORDING: ${CALL_RECORDING}`);
 	console.log(`CALL ADMIN PASSWORD: ${CALL_ADMIN_SECRET}`);
+	console.log(`JWT  PASSWORD: ${JWT_SECRET}`);
+	console.log(`JWT  LIFETIME: ${JWT_LIFETIME}`);
 	console.log(`OpenVidu Call Server is listening on port ${SERVER_PORT}`);
 	console.log(' ');
 	console.log('---------------------------------------------------------');

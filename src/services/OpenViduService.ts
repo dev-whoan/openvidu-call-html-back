@@ -123,4 +123,9 @@ export class OpenViduService {
 		const recordingList: Recording[] = await this.listAllRecordings();
 		return recordingList.filter((recording) => recording.sessionId === sessionId && date <= recording.createdAt);
 	}
+
+	public async listRecordingsBySessionId(sessionId: string){
+		const recordingList: Recording[] = await this.listAllRecordings();
+		return	recordingList.filter((recording) => recording.sessionId === sessionId);
+	}
 }

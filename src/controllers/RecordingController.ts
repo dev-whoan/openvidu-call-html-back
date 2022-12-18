@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { Recording } from 'openvidu-node-client';
 import { OpenViduService } from '../services/OpenViduService';
+import { verifyJsonWebToken } from './AuthJWTController';
 export const app = express.Router({
 	strict: true
 });
@@ -13,12 +14,23 @@ const openviduService = OpenViduService.getInstance();
 
 app.get('/list/:sessionId', async (req: Request, res: Response) => {
 	try {
+		const token = req.headers.authorization.split(" ")[1];
+
+		const isValidToken: Boolean = verifyJsonWebToken(token);
+
+		if(!isValidToken){
+			res.status(403).send(JSON.stringify({ message: 'Permissions denied to drive recording' }));
+			return;
+		}
+
 		const IS_RECORDING_ENABLED = CALL_RECORDING.toUpperCase() === 'ENABLED';
 		const sessionId = req.params.sessionId;
 		
 		let recordings = [];
 		if (!!sessionId && IS_RECORDING_ENABLED) {
-			recordings = await openviduService.listAllRecordings();
+			console.log(`SessionId: ${sessionId}`);
+			recordings = await openviduService.listRecordingsBySessionId(sessionId);
+			console.log(`recordings:`, recordings);
 			res.status(200).send(JSON.stringify(recordings));
 		} else {
 			const message = IS_RECORDING_ENABLED ? 'Permissions denied to drive recording' : 'Recording is disabled';
@@ -68,6 +80,19 @@ app.post('/start', async (req: Request, res: Response) => {
 	try {
 		let sessionId: string = req.body.sessionId;
 		if (CALL_RECORDING === 'ENABLED') {
+			let sessionInfo = openviduService.searchSessionBySessionId(sessionId);
+
+			if(!!sessionInfo){
+				let startingRecording: Recording = null;
+				console.log(`Starting recording in ${sessionId} without token check`);
+				startingRecording = await openviduService.startRecording(sessionId);
+				openviduService.recordingMap.get(sessionId).recordingId = startingRecording.id;
+				res.status(200).send(JSON.stringify(startingRecording));
+			} else {
+				console.log(`Permissions denied for starting recording in session ${sessionId}`);
+				res.status(403).send(JSON.stringify({ message: 'Permissions denied to drive recording' }));
+			}
+			/*
 			if (openviduService.isValidToken(sessionId, req.cookies)) {
 				let startingRecording: Recording = null;
 				console.log(`Starting recording in ${sessionId}`);
@@ -78,6 +103,7 @@ app.post('/start', async (req: Request, res: Response) => {
 				console.log(`Permissions denied for starting recording in session ${sessionId}`);
 				res.status(403).send(JSON.stringify({ message: 'Permissions denied to drive recording' }));
 			}
+		       */
 		} else {
 			console.log(`Start recording failed. OpenVidu Call Recording is disabled`);
 			res.status(403).send(JSON.stringify({ message: 'OpenVidu Call Recording is disabled' }));
@@ -102,6 +128,36 @@ app.post('/stop', async (req: Request, res: Response) => {
 		const sessionId: string = req.body.sessionId;
 		const _recordingId: string = req.body.recordingId;
 		if (CALL_RECORDING === 'ENABLED') {
+			let sessionInfo = openviduService.searchSessionBySessionId(sessionId);
+
+                        if(!!sessionInfo){
+				const recordingId = openviduService.recordingMap.get(sessionId)?.recordingId;
+                                console.log(openviduService.recordingMap);
+                                console.log(`sessionId: ${sessionId}, recordingId: ${recordingId}, body recording id: ${_recordingId}`);
+
+				if (!!recordingId) {
+                                        console.log(`Stopping recording in ${sessionId}`);
+                                        await openviduService.stopRecording(recordingId);
+                                        const date = openviduService.getDateFromCookie(req.cookies);
+                                        const recordingList = await openviduService.listRecordingsBySessionIdAndDate(sessionId, date);
+                                        openviduService.recordingMap.get(sessionId).recordingId = '';
+                                        res.status(200).send(JSON.stringify(recordingList));
+                                } else {
+                                        if(!!_recordingId){
+                                                console.log(`Stopping recording in ${sessionId} with _recordingId ${_recordingId}`);
+                                                await openviduService.stopRecording(_recordingId);
+                                                const date = openviduService.getDateFromCookie(req.cookies);
+                                                const recordingList = await openviduService.listRecordingsBySessionIdAndDate(sessionId, date);
+                                                openviduService.recordingMap.get(sessionId).recordingId = '';
+                                                res.status(200).send(JSON.stringify(recordingList));
+                                        } else {
+                                                res.status(404).send(JSON.stringify({ message: 'Session was not being recorded' }));
+                                        }
+                                }
+                        } else {
+                                res.status(403).send(JSON.stringify({ message: 'Permissions denied to drive recording' }));
+                        }
+			/*
 			if (openviduService.isValidToken(sessionId, req.cookies)) {
 				const recordingId = openviduService.recordingMap.get(sessionId)?.recordingId;
 				console.log(openviduService.recordingMap);
@@ -129,7 +185,7 @@ app.post('/stop', async (req: Request, res: Response) => {
 				}
 			} else {
 				res.status(403).send(JSON.stringify({ message: 'Permissions denied to drive recording' }));
-			}
+			}*/
 		} else {
 			console.log(`Stop recording failed. OpenVidu Call Recording is disabled`);
 			res.status(403).send(JSON.stringify({ message: 'OpenVidu Call Recording is disabled' }));

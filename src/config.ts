@@ -9,3 +9,5 @@ export const CALL_ADMIN_SECRET = process.env.CALL_ADMIN_SECRET || OPENVIDU_SECRE
 export const CALL_RECORDING = process.env.CALL_RECORDING || 'ENABLED';
 export const CALL_AUTO_RECORDING = process.env.CALL_AUTO_RECORDING || 'false';
 export const MEETING_HOME = process.env.MEETING_HOME || '/meeting';
+export const JWT_SECRET = process.env.JWT_SECRET || 'MY_SECRET_JWT';
+export const JWT_LIFETIME = process.env.JWT_LIFETIME || 600;
